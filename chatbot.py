@@ -25,6 +25,7 @@ FILRES_WEATHER = 8
 wakeWords = ["Dude", "dude"]
 errorCode = ""
 isWoke = False
+debug_mode = True
     
 # Initialize the TTS engine
 def Speak(text):
@@ -94,6 +95,8 @@ def GetWeather():
     else:
         return "City not found"
 
+# Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 def ExecuteCommand(filterResult):
     global isWoke
     global errorCode
@@ -104,7 +107,7 @@ def ExecuteCommand(filterResult):
     elif (filterResult == FILRES_WAKEWORD):
         isWoke = True
         tts = "Hello"
-    elif (isWoke == False):
+    elif (isWoke == False and debug_mode == False):
         errorCode = "Not woke"
         return False
     elif (filterResult == FILRES_GOOGLE):
