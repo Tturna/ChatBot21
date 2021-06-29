@@ -4,6 +4,7 @@ langID_eng_home1 = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\T
 import time
 import speech_recognition as sr
 import pywhatkit
+import pyttsx3
 from googlesearch import search as google
 
 # Filter Result codes
@@ -19,6 +20,7 @@ FILRES_NEWS = 7
 wakeWords = ["wakeword"]
 
 errorCode = ""
+ttsEngine = pyttsx3.init()
 
 def FilterCommands(text):
     # This function will check if the argument text has any commands in it
@@ -51,9 +53,15 @@ def FilterCommands(text):
     # No command detected
     return FILRES_NONE
 
+# Commands ------------------------------------------------------------------------
+def GetTime():
+    cTime = time.localtime()
+    return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min)
+
 def ExecuteCommand(filterResult):
+    tts = "fuck, it didn't work"
     if (filterResult == FILRES_NONE):
-        pass
+        return False
     elif (filterResult == FILRES_GOOGLE):
         #tts = GoogleSearch(query)
         pass
@@ -61,7 +69,7 @@ def ExecuteCommand(filterResult):
         #tts = WikipediaSearch(query)
         pass
     elif (filterResult == FILRES_TIME):
-        #tts = GetTime()
+        tts = GetTime()
         pass
     elif (filterResult == FILRES_CALC):
         #tts = Calculate(equation)
@@ -71,6 +79,11 @@ def ExecuteCommand(filterResult):
         pass
     else:
         return False
+    
+    # Text-To-Speech
+    ttsEngine.say(tts)
+    ttsEngine.runAndWait()
+
     return True
 
 # this is called from the background thread
@@ -82,7 +95,7 @@ def ProcessAudio(recognizer, audio):
         # instead of `r.recognize_google(audio)`
         text = recognizer.recognize_google(audio)
         filterResult = FilterCommands(text)
-        print(text + "[ Detected command: " + str(filterResult) + " ]")
+        print(text + " [ Detected command: " + str(filterResult) + " ]")
 
         succeeded = ExecuteCommand(filterResult)
 
@@ -107,7 +120,7 @@ with m as source:
 
 print("Listening for speech...")
 
-# start listening in the background (note that we don't have to do this inside a `with` statement)
+# start listening in the background
 stop_listening = r.listen_in_background(source=m, callback=ProcessAudio, phrase_time_limit=phrase_time)
 # `stop_listening` is now a function that, when called, stops background listening
 
@@ -118,5 +131,4 @@ stop_listening = r.listen_in_background(source=m, callback=ProcessAudio, phrase_
 
 #print("Stopped listening")
 
-# do some more unrelated things
-while True: time.sleep(0.1)  # we're not listening anymore, even though the background thread might still be running for a second or two while cleaning up and stopping
+while True: time.sleep(0.1)
