@@ -7,6 +7,9 @@ import pyttsx3
 import requests, json
 import math
 import inspect
+import random
+import urllib.request
+from bs4 import BeautifulSoup
 from googlesearch import search as google
 
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
@@ -40,7 +43,6 @@ commands = {
 }
 
 # List of all command keywords that the system will listen to and all of their respective filter codes
-# NOTE: Use the upper case versions here. The system will check both these words and their lower case versions.
 keywords = {
     "Google": FILRES_GOOGLE,
     "Wikipedia": FILRES_WIKIPEDIA,
@@ -57,6 +59,7 @@ debug_mode = True
     
 # Initialize the TTS engine
 def Speak(text):
+    if text == None: return
     ttsEngine = pyttsx3.init()
     ttsEngine.setProperty("rate", 175)
     ttsEngine.setProperty("voice", tts_langID_en_US)
@@ -73,19 +76,48 @@ def FilterCommands(text):
     for w in wakeWords:
         if w in text:
             # Wakeword detected
-            return FILRES_WAKEWORD
+            return FILRES_WAKEWORD, []
 
     # Check if a command was heard
+    text = str.lower(text)
     for k in keywords:
-        if (k in text or str.lower(k) in text):
-            return keywords[k]
+        og = k
+        k = str.lower(k)
+        if (k in text):
+            # Get args if there are any
+            args = []
+
+            # Find the initial command word's starting position
+            fullcmd = text[text.find(k):]
+            cmd = fullcmd[:len(k)]
+            try:
+                argset = fullcmd[len(k) + 1:]
+                args = argset.split()
+            except: pass
+            print("Command: " + cmd + ", Args: " + str(args))
+
+            return keywords[og], args
 
     # No command detected
-    return FILRES_NONE
+    return FILRES_NONE, []
 
 # Commands ------------------------------------------------------------------------
-def GoogleSearch(query):
-    return "Google searching doesn't exist yet."
+def GoogleSearch(query="###"):
+
+    roasts = ["I can't Google nothing", "Provide something to Google", "No", "Fuck you"]
+    maxContentCharacters = 400
+    # Check if this function was called with no parameters
+    # If so, roast the fuck our of the user
+    print("Google query: " + str(query))
+    if (query == "###" or query == [] or query == "" or query == None):
+        return random.choice(roasts)
+
+    resultURL = google(query, num_results=1)
+    html = urllib.request.urlopen(resultURL[0]).read().decode("utf-8")
+    soup = BeautifulSoup(html, "html.parser")
+    contents = " ".join(soup.get_text().split())[:maxContentCharacters]
+    print("Found: " + contents)
+    return "I found this on Google, " + contents
 
 def WikipediaSearch(query):
     return "Wikipedia searching doesn't exist yet."
@@ -123,7 +155,7 @@ def GetWeather():
 
 # Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-def ExecuteCommand(filterResult):
+def ExecuteCommand(filterResult, argList):
     global isWoke
     global errorCode
 
@@ -148,21 +180,23 @@ def ExecuteCommand(filterResult):
     
     # Execute heard command
     if errorCode == "" and filterResult != 1:
-        # Get arguments from heard speech if there are any
-        # NOTE: The current system just fills in bullshit strings so the function call doesn't fuck over
-        args = ""
-        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
+        # paramNames is a list of parameter names in the function
+        #paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
 
-        if len(paramNames) > 0:
-            args += "'"
-            for n in range(len(paramNames)):
-                args += (paramNames[n])
-                if len(paramNames) > n + 1:
-                    args += "', '"
-            args += "'"
+        # Get arguments from heard speech if there are any
+        args = "'"
+
+        for n in range(len(argList)):
+            args += str(argList[n])
+            if len(argList) > n + 1:
+                args += " "
+        args += "'"
 
         # Call the command function
-        tts = eval(commands[filterResult] + "(" + args + ")")
+        try:
+            tts = eval(commands[filterResult] + "(" + args + ")")
+        except:
+            tts = "Something went wrong with the command."
     
     # Text-To-Speech
     Speak(tts)
@@ -177,11 +211,11 @@ def ProcessAudio(recognizer, audio):
         # to use another API key, use `r.recognize_google(audio, key="GOOGLE_SPEECH_RECOGNITION_API_KEY")`
         # instead of `r.recognize_google(audio)`
         text = recognizer.recognize_google(audio)
-        filterResult = FilterCommands(text)
+        filterResult, args = FilterCommands(text)
         print(text)
         #print(text + " [ Detected command: " + str(filterResult) + " ]")
 
-        succeeded = ExecuteCommand(filterResult)
+        succeeded = ExecuteCommand(filterResult, args)
 
         if (not succeeded):
             print("Error: " + errorCode)
