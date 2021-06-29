@@ -5,7 +5,11 @@ import time
 import speech_recognition as sr
 import pywhatkit
 import pyttsx3
+import requests, json
+import math
 from googlesearch import search as google
+
+WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
 
 # Filter Result codes
 FILRES_NONE = 0
@@ -16,6 +20,7 @@ FILRES_YOUTUBE = 4
 FILRES_TIME = 5
 FILRES_CALC = 6
 FILRES_NEWS = 7
+FILRES_WEATHER = 8
 
 wakeWords = ["wakeword"]
 
@@ -38,6 +43,10 @@ def FilterCommands(text):
         # Wikipedia search command detected
         return FILRES_WIKIPEDIA
 
+    if "Weather" in text or "weather" in text:
+        # Get weather of specified city
+        return FILRES_WEATHER
+
     if "Time" in text or "time" in text:
         # Time check command detected
         return FILRES_TIME
@@ -56,7 +65,25 @@ def FilterCommands(text):
 # Commands ------------------------------------------------------------------------
 def GetTime():
     cTime = time.localtime()
-    return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min)
+    return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min) 
+
+def GetWeather():
+    CITY = "" #used later as a keyword thingymajigy you know chief
+    API_KEY = ""
+    URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY
+    response = requests.get(URL)
+    if response.status_code == 200:
+        data = response.json()
+        main = data['main']
+        temperature = main['temp']
+        humidity = main['humidity']
+        #pressure = main['pressure'] idk does anyone actually need to know this? leaving here in case yes
+        report = data['weather']
+        temperature -= 273
+        rounded_temp = round(temperature)
+        return CITY + " weather: " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees at a humidity of" + str(humidity) + " %"
+    else:
+        return "City not found"
 
 def ExecuteCommand(filterResult):
     tts = "fuck, it didn't work"
@@ -76,6 +103,9 @@ def ExecuteCommand(filterResult):
         pass
     elif (filterResult == FILRES_NEWS):
         #tts = GetNews()
+        pass
+    elif (filterResult == FILRES_WEATHER):
+        tts = GetWeather()
         pass
     else:
         return False
