@@ -117,7 +117,7 @@ def GetWeather():
         report = data['weather']
         temperature -= 273
         rounded_temp = round(temperature)
-        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees at a humidity of" + str(humidity) + " %"
+        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees, at a humidity of, " + str(humidity) + " %"
     else:
         return "Error. API key is not set." if (API_KEY == "") else "City not found."
 
@@ -136,7 +136,8 @@ def ExecuteCommand(filterResult):
         tts = "Hello"
 
     # Return error if the system is not WOKE and a command was heard
-    elif (isWoke == False):
+    # Ignore wokeness if debug mode is enabled
+    elif (isWoke == False and debug_mode == False):
         errorCode = "Not woke"
         return False
 
