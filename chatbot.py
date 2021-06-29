@@ -1,5 +1,4 @@
-tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi" #finnish TTS
-tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0" #english_US TTS
+# ChatBot21
 
 import time
 import speech_recognition as sr
@@ -7,9 +6,12 @@ import pywhatkit
 import pyttsx3
 import requests, json
 import math
+import inspect
 from googlesearch import search as google
 
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
+tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi" #finnish TTS
+tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0" #english_US TTS
 
 # Filter Result codes
 FILRES_NONE = 0
@@ -22,7 +24,33 @@ FILRES_CALC = 6
 FILRES_NEWS = 7
 FILRES_WEATHER = 8
 
+# List of all words that are considered as "wakewords".
+# The system will not run any commands before it hears a wakeword
 wakeWords = ["Dude", "dude"]
+
+# List of all command function names with their respective filter codes as indexes in the dictionary
+commands = {
+    2: "GoogleSearch",
+    3: "WikipediaSearch",
+    4: "YoutubeSearch",
+    5: "GetTime",
+    6: "Calculate",
+    7: "GetNews",
+    8: "GetWeather"
+}
+
+# List of all command keywords that the system will listen to and all of their respective filter codes
+# NOTE: Use the upper case versions here. The system will check both these words and their lower case versions.
+keywords = {
+    "Google": FILRES_GOOGLE,
+    "Wikipedia": FILRES_WIKIPEDIA,
+    "YouTube": FILRES_YOUTUBE,
+    "Time": FILRES_TIME,
+    "Calculate": FILRES_CALC,
+    "News": FILRES_NEWS,
+    "Weather": FILRES_WEATHER
+}
+
 errorCode = ""
 isWoke = False
 debug_mode = True
@@ -39,43 +67,41 @@ def Speak(text):
 
 def FilterCommands(text):
     # This function will check if the argument text has any commands in it
+    # Returns a filter result code depending on what was heard
 
+    # Check if heard speech contained the wakeword
     for w in wakeWords:
         if w in text:
             # Wakeword detected
             return FILRES_WAKEWORD
 
-    if "Google" in text or "google" in text:
-        # Google search command detected
-        return FILRES_GOOGLE
-
-    if "Wikipedia" in text or "wikipedia" in text or "wiki" in text:
-        # Wikipedia search command detected
-        return FILRES_WIKIPEDIA
-
-    if "Weather" in text or "weather" in text:
-        # Get weather of specified city
-        return FILRES_WEATHER
-
-    if "Time" in text or "time" in text:
-        # Time check command detected
-        return FILRES_TIME
-
-    if "Calculate" in text or "calculate" in text:
-        # Calculation command detected
-        return FILRES_CALC
-    
-    if "News" in text or "news" in text:
-        # News check command detected
-        return FILRES_NEWS
+    # Check if a command was heard
+    for k in keywords:
+        if (k in text or str.lower(k) in text):
+            return keywords[k]
 
     # No command detected
     return FILRES_NONE
 
 # Commands ------------------------------------------------------------------------
+def GoogleSearch(query):
+    return "Google searching doesn't exist yet."
+
+def WikipediaSearch(query):
+    return "Wikipedia searching doesn't exist yet."
+
+def YoutubeSearch(query):
+    return "YouTube searching doesn't exist yet."
+
 def GetTime():
     cTime = time.localtime()
     return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min) 
+
+def Calculate(equation):
+    return "Calculating doesn't exist yet."
+
+def GetNews():
+    return "Getting news doesn't exist yet."
 
 def GetWeather():
     CITY = "" #used later as a keyword thingymajigy you know chief
@@ -91,9 +117,9 @@ def GetWeather():
         report = data['weather']
         temperature -= 273
         rounded_temp = round(temperature)
-        return CITY + " weather: " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees at a humidity of" + str(humidity) + " %"
+        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees at a humidity of" + str(humidity) + " %"
     else:
-        return "City not found"
+        return "Error. API key is not set." if (API_KEY == "") else "City not found."
 
 # Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -101,41 +127,46 @@ def ExecuteCommand(filterResult):
     global isWoke
     global errorCode
 
-    tts = "fuck, it didn't work"
-    if (filterResult == FILRES_NONE):
-        return False
-    elif (filterResult == FILRES_WAKEWORD):
+    errorCode = ""
+    tts = "Something went wrong. This shouldn't have happened."
+
+    # Listen for wakeword
+    if (filterResult == 1):
         isWoke = True
         tts = "Hello"
-    elif (isWoke == False and debug_mode == False):
+
+    # Return error if the system is not WOKE and a command was heard
+    elif (isWoke == False):
         errorCode = "Not woke"
         return False
-    elif (filterResult == FILRES_GOOGLE):
-        #tts = GoogleSearch(query)
-        pass
-    elif (filterResult == FILRES_WIKIPEDIA):
-        #tts = WikipediaSearch(query)
-        pass
-    elif (filterResult == FILRES_TIME):
-        tts = GetTime()
-        pass
-    elif (filterResult == FILRES_CALC):
-        #tts = Calculate(equation)
-        pass
-    elif (filterResult == FILRES_NEWS):
-        #tts = GetNews()
-        pass
-    elif (filterResult == FILRES_WEATHER):
-        tts = GetWeather()
-        pass
-    else:
-        errorCode = "Idk dude"
-        return False
+
+    # Return error when no command was heard
+    elif (filterResult == 0):
+        errorCode = "No such command"
+        tts = "I don't know what that means."
+    
+    # Execute heard command
+    if errorCode == "" and filterResult != 1:
+        # Get arguments from heard speech if there are any
+        # NOTE: The current system just fills in bullshit strings so the function call doesn't fuck over
+        args = ""
+        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
+
+        if len(paramNames) > 0:
+            args += "'"
+            for n in range(len(paramNames)):
+                args += (paramNames[n])
+                if len(paramNames) > n + 1:
+                    args += "', '"
+            args += "'"
+
+        # Call the command function
+        tts = eval(commands[filterResult] + "(" + args + ")")
     
     # Text-To-Speech
     Speak(tts)
 
-    return True
+    return errorCode == ""
 
 # this is called from the background thread
 def ProcessAudio(recognizer, audio):
@@ -146,7 +177,8 @@ def ProcessAudio(recognizer, audio):
         # instead of `r.recognize_google(audio)`
         text = recognizer.recognize_google(audio)
         filterResult = FilterCommands(text)
-        print(text + " [ Detected command: " + str(filterResult) + " ]")
+        print(text)
+        #print(text + " [ Detected command: " + str(filterResult) + " ]")
 
         succeeded = ExecuteCommand(filterResult)
 
@@ -162,9 +194,9 @@ def ProcessAudio(recognizer, audio):
 r = sr.Recognizer()
 m = sr.Microphone()
 
-r.energy_threshold = 30 # energy level threshold for sounds. Values below this threshold are considered silence
-r.pause_threshold = 0.5 # minimum length of silence (in seconds) that will register as the end of a phrase
-phrase_time = 7.5 # maximum time in seconds the recognizer will listen to a phrase before cutting off
+r.energy_threshold = 150 # energy level threshold for sounds. Values below this threshold are considered silence (default: 300)
+r.pause_threshold = 0.5 # minimum length of silence (in seconds) that will register as the end of a phrase (default: ~0.7)
+phrase_time = 7.5 # maximum time in seconds the recognizer will listen to a phrase before cutting off (default: None)
 
 with m as source:
     r.adjust_for_ambient_noise(source)  # we only need to calibrate once, before we start listening
