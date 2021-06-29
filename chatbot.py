@@ -1,5 +1,5 @@
-langID_fin_home1 = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi" #finnish TTS
-langID_eng_home1 = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0" #english_US TTS
+tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi" #finnish TTS
+tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0" #english_US TTS
 
 import time
 import speech_recognition as sr
@@ -17,10 +17,19 @@ FILRES_TIME = 5
 FILRES_CALC = 6
 FILRES_NEWS = 7
 
-wakeWords = ["wakeword"]
-
+wakeWords = ["Dude", "dude"]
 errorCode = ""
-ttsEngine = pyttsx3.init()
+isWoke = False
+    
+# Initialize the TTS engine
+def Speak(text):
+    ttsEngine = pyttsx3.init()
+    ttsEngine.setProperty("rate", 175)
+    ttsEngine.setProperty("voice", tts_langID_en_US)
+    ttsEngine.setProperty("volume", 0.5)
+    ttsEngine.say(text)
+    ttsEngine.runAndWait()
+    return True
 
 def FilterCommands(text):
     # This function will check if the argument text has any commands in it
@@ -59,8 +68,17 @@ def GetTime():
     return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min)
 
 def ExecuteCommand(filterResult):
+    global isWoke
+    global errorCode
+
     tts = "fuck, it didn't work"
     if (filterResult == FILRES_NONE):
+        return False
+    elif (filterResult == FILRES_WAKEWORD):
+        isWoke = True
+        tts = "Hello"
+    elif (isWoke == False):
+        errorCode = "Not woke"
         return False
     elif (filterResult == FILRES_GOOGLE):
         #tts = GoogleSearch(query)
@@ -78,11 +96,11 @@ def ExecuteCommand(filterResult):
         #tts = GetNews()
         pass
     else:
+        errorCode = "Idk dude"
         return False
     
     # Text-To-Speech
-    ttsEngine.say(tts)
-    ttsEngine.runAndWait()
+    Speak(tts)
 
     return True
 
@@ -100,7 +118,7 @@ def ProcessAudio(recognizer, audio):
         succeeded = ExecuteCommand(filterResult)
 
         if (not succeeded):
-            print(errorCode)
+            print("Error: " + errorCode)
 
     except sr.UnknownValueError:
         print("Could not understand audio")
@@ -131,4 +149,6 @@ stop_listening = r.listen_in_background(source=m, callback=ProcessAudio, phrase_
 
 #print("Stopped listening")
 
-while True: time.sleep(0.1)
+while True:
+    time.sleep(0.1)
+    #print(ttsEngine.isBusy())
