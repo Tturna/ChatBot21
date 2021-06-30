@@ -9,6 +9,10 @@ import math
 import inspect
 import random
 import urllib.request
+import pafy
+import vlc # Requires VLC to be installed on the machine. Probably VLC 64-bit, not tested on anything else
+from youtubesearchpython import VideosSearch
+from newsapi import NewsApiClient
 from bs4 import BeautifulSoup
 from googlesearch import search as google
 
@@ -46,7 +50,10 @@ commands = {
 keywords = {
     "Google": FILRES_GOOGLE,
     "Wikipedia": FILRES_WIKIPEDIA,
+    "Who is": FILRES_WIKIPEDIA,
+    "What is": FILRES_WIKIPEDIA,
     "YouTube": FILRES_YOUTUBE,
+    "Play": FILRES_YOUTUBE,
     "Time": FILRES_TIME,
     "Calculate": FILRES_CALC,
     "News": FILRES_NEWS,
@@ -84,12 +91,20 @@ def FilterCommands(text):
         og = k
         k = str.lower(k)
         if (k in text):
-            # Get args if there are any
+
+            # NOTE: This system needs improvement
+            # Currently you can only search stuff on Google and Wikipedia by saying
+            # "Google x" or "Wikipedia x"
+            # You should be able to also search by saying
+            # "Search x on Google" or "Find x on Wikipedia"
+
             args = []
 
             # Find the initial command word's starting position
             fullcmd = text[text.find(k):]
             cmd = fullcmd[:len(k)]
+
+            # Get all the words after the initial command and set them as arguments, if possible
             try:
                 argset = fullcmd[len(k) + 1:]
                 args = argset.split()
@@ -104,26 +119,69 @@ def FilterCommands(text):
 # Commands ------------------------------------------------------------------------
 def GoogleSearch(query="###"):
 
-    roasts = ["I can't Google nothing", "Provide something to Google", "No", "Fuck you"]
-    maxContentCharacters = 400
     # Check if this function was called with no parameters
     # If so, roast the fuck our of the user
+    roasts = ["I can't Google nothing", "Provide something to Google", "No", "Fuck you"]
     print("Google query: " + str(query))
     if (query == "###" or query == [] or query == "" or query == None):
         return random.choice(roasts)
 
-    resultURL = google(query, num_results=1)
-    html = urllib.request.urlopen(resultURL[0]).read().decode("utf-8")
-    soup = BeautifulSoup(html, "html.parser")
-    contents = " ".join(soup.get_text().split())[:maxContentCharacters]
+    maxContentCharacters = 400
+
+    # Attempt to get Google results
+    attempts = 3
+    contents = " nothing. Google got fucked."
+    resultURLs = google(query, num_results=attempts)
+    for n in range(attempts):
+        try:
+            html = urllib.request.urlopen(resultURLs[n]).read().decode("utf-8")
+            soup = BeautifulSoup(html, "html.parser")
+            contents = " ".join(soup.get_text().split())[:maxContentCharacters]
+            break
+        except:
+            continue
     print("Found: " + contents)
+
+    # Check if result was on Wikipedia and use the proper command for it instead
+    if ("wikipedia" in contents.lower()):
+        return WikipediaSearch(query)
+
     return "I found this on Google, " + contents
 
-def WikipediaSearch(query):
-    return "Wikipedia searching doesn't exist yet."
+def WikipediaSearch(query="###"):
+
+    # Check if this function was called with no parameters
+    # If so, roast the fuck our of the user
+    roasts = ["Yes, Wikipedia is a thing.", "Give me a topic, dipshit"]
+    if (query == "###" or query == [] or query == "" or query == None):
+        return random.choice(roasts)
+
+    maxContentCharacters = 400
+    contents = pywhatkit.info(query)[:maxContentCharacters]
+
+    return "I Found this on Wikipedia, " + contents
 
 def YoutubeSearch(query):
-    return "YouTube searching doesn't exist yet."
+
+    print("Searching '" + query + "' on YouTube")
+
+    # Get best relevant YouTube video URL
+    resultDict = VideosSearch(query, limit = 1).result()
+    print("YTSearch got: " + resultDict["result"][0]["link"])
+    pafynew = pafy.new(resultDict["result"][0]["link"])
+    print("Pafy got: " + str(pafynew))
+    bestresult = pafynew.getbest()
+    url = bestresult.url
+
+    # Tell VLC to play the video
+    Instance = vlc.Instance()
+    player = Instance.media_player_new()
+    Media = Instance.media_new(url)
+    Media.get_mrl()
+    player.set_media(Media)
+    player.play()
+
+    return None
 
 def GetTime():
     cTime = time.localtime()
@@ -133,6 +191,8 @@ def Calculate(equation):
     return "Calculating doesn't exist yet."
 
 def GetNews():
+    # Maybe get some news from Twitter? Pretty sure they have an API
+    # NewsApiClient for actual sources
     return "Getting news doesn't exist yet."
 
 def GetWeather():
@@ -193,10 +253,11 @@ def ExecuteCommand(filterResult, argList):
         args += "'"
 
         # Call the command function
-        try:
-            tts = eval(commands[filterResult] + "(" + args + ")")
-        except:
-            tts = "Something went wrong with the command."
+        tts = eval(commands[filterResult] + "(" + args + ")")
+        # try:
+        #     tts = eval(commands[filterResult] + "(" + args + ")")
+        # except:
+        #     tts = "Something went wrong with the command."
     
     # Text-To-Speech
     Speak(tts)
