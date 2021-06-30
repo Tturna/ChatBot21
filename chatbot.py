@@ -198,8 +198,11 @@ def GetNews():
     # NewsApiClient for actual sources
     return "Getting news doesn't exist yet."
 
-def GetWeather():
-    CITY = "" #used later as a keyword thingymajigy you know chief
+def GetWeather(query):
+    roasts = ["Please specify a city", "A city needs to be specified to get weather"]
+    if (query == "###" or query == [] or query == "" or query == None):
+        return random.choice(roasts)
+    CITY = query
     API_KEY = ""
     URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY
     response = requests.get(URL)
