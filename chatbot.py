@@ -31,6 +31,7 @@ FILRES_CALC = 6
 FILRES_NEWS = 7
 FILRES_WEATHER = 8
 FILRES_COINFLIP = 9
+FILRES_M8B = 10
 
 # List of all words that are considered as "wakewords".
 # The system will not run any commands before it hears a wakeword
@@ -45,7 +46,8 @@ commands = {
     6: "Calculate",
     7: "GetNews",
     8: "GetWeather",
-    9: "CoinFlip"
+    9: "CoinFlip",
+    10: "Magic8Ball"
 }
 
 # List of all command keywords that the system will listen to and all of their respective filter codes
@@ -60,7 +62,9 @@ keywords = {
     "Calculate": FILRES_CALC,
     "News": FILRES_NEWS,
     "Weather": FILRES_WEATHER,
-    "Coin flip": FILRES_COINFLIP
+    "Coin flip": FILRES_COINFLIP,
+    "Magic 8 ball": FILRES_M8B,
+    "Magic 8-ball": FILRES_M8B
 }
 
 errorCode = ""
@@ -233,6 +237,12 @@ def CoinFlip():
     else:
         return "Tails"
 
+def Magic8Ball(question):
+    if question == "":
+        return "You need to ask a question"
+    else:
+        responses = ["It is certain", "It is decidedly so", "Without a doubt", "Yes, definitely", "You may rely on it", "As I see it, yes", "Most likely", "Outlook good", "Yes", "Signs point to yes", "Reply hazy try again", "Ask again later", "Better not tell you now", "Cannot predict you", "Concentrate and ask again", "Don't count on it", "My reply is no", "My sources say no", "Outlook not so good", "Very doubtful"]
+        return random.choice(responses)
 # Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 def ExecuteCommand(filterResult, argList):
