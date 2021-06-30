@@ -30,6 +30,7 @@ FILRES_TIME = 5
 FILRES_CALC = 6
 FILRES_NEWS = 7
 FILRES_WEATHER = 8
+FILRES_COINFLIP = 9
 
 FILRES_STOPVIDEO = 100
 FILRES_MUTEVIDEO = 101
@@ -51,6 +52,7 @@ commands = {
     6: "Calculate",
     7: "GetNews",
     8: "GetWeather",
+    9: "CoinFlip",
 
     100: "Stop",
     101: "MuteVideo",
@@ -71,6 +73,7 @@ keywords = {
     "Calculate": FILRES_CALC,
     "News": FILRES_NEWS,
     "Weather": FILRES_WEATHER,
+    "Coin flip": FILRES_COINFLIP,
 
     "Stop": FILRES_STOPVIDEO,
     "Mute": FILRES_MUTEVIDEO,
@@ -231,20 +234,31 @@ def GetWeather(query):
         return random.choice(roasts)
     CITY = query
     API_KEY = ""
-    URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY
+    URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY + "&units=metric"
     response = requests.get(URL)
     if response.status_code == 200:
         data = response.json()
         main = data['main']
+        wind = data['wind']
+        clouds = data['clouds']
+        feelslike = main['feels_like']
         temperature = main['temp']
         humidity = main['humidity']
-        #pressure = main['pressure'] idk does anyone actually need to know this? leaving here in case yes
+        clouds_all = clouds['all']
+        wind_speed = wind['speed']
         report = data['weather']
-        temperature -= 273
         rounded_temp = round(temperature)
-        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees, at a humidity of, " + str(humidity) + " %"
+        rounded_feels = round(feelslike)
+        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees, at a humidity of, " + str(humidity) + " %, the temperature feels like " + str(rounded_feels) + " degrees. It is " + str(clouds_all) + "%" + "  cloudy and the wind speed is " + str(wind_speed) + " meters per second"
     else:
         return "Error. API key is not set." if (API_KEY == "") else "City not found."
+        
+def CoinFlip():
+    flip = random.randint(0,1)
+    if (flip == 0):
+        return "Heads"
+    else:
+        return "Tails"
 
 def Stop():
     # This function will stop whatever is currently going on
@@ -268,6 +282,7 @@ def VideoVolumeDown(amount=-20):
 
 def VideoToggleFullscreen():
     vlcPlayer.toggle_fullscreen()
+
 # Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 def ExecuteCommand(filterResult, argList):
