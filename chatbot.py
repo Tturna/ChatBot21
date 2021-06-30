@@ -84,11 +84,72 @@ def FilterCommands(text):
     return FILRES_NONE
 
 # Commands ------------------------------------------------------------------------
-def GoogleSearch(query):
-    return "Google searching doesn't exist yet."
+def GoogleSearch(query="###"):
 
-def WikipediaSearch(query):
-    return "Wikipedia searching doesn't exist yet."
+    # Check if this function was called with no parameters
+    # If so, roast the fuck our of the user
+    roasts = ["I can't Google nothing", "Provide something to Google", "No", "Fuck you"]
+    print("Google query: " + str(query))
+    if (query == "###" or query == [] or query == "" or query == None):
+        return random.choice(roasts)
+
+    maxContentCharacters = 400
+
+    # Attempt to get Google results
+    attempts = 3
+    contents = " nothing. Google got fucked."
+    resultURLs = google(query, num_results=attempts)
+    for n in range(attempts):
+        try:
+            html = urllib.request.urlopen(resultURLs[n]).read().decode("utf-8")
+            soup = BeautifulSoup(html, "html.parser")
+            contents = " ".join(soup.get_text().split())[:maxContentCharacters]
+            break
+        except:
+            continue
+    print("Found: " + contents)
+
+    # Check if result was on Wikipedia and use the proper command for it instead
+    if ("wikipedia" in contents.lower()):
+        return WikipediaSearch(query)
+
+    return "I found this on Google, " + contents
+
+def WikipediaSearch(query="###"):
+
+    # Check if this function was called with no parameters
+    # If so, roast the fuck our of the user
+    roasts = ["Yes, Wikipedia is a thing.", "Give me a topic, dipshit"]
+    if (query == "###" or query == [] or query == "" or query == None):
+        return random.choice(roasts)
+
+    maxContentCharacters = 400
+    print("Wikipedia query: " + str(query))
+    contents = str(pywhatkit.info(query, return_value=True))[:maxContentCharacters]
+
+    return "I Found this on Wikipedia, " + contents
+
+def YoutubeSearch(query):
+
+    print("Searching '" + query + "' on YouTube")
+
+    # Get best relevant YouTube video URL
+    resultDict = VideosSearch(query, limit = 1).result()
+    print("YTSearch got: " + resultDict["result"][0]["link"])
+    pafynew = pafy.new(resultDict["result"][0]["link"])
+    print("Pafy got: " + str(pafynew))
+    bestresult = pafynew.getbest()
+    url = bestresult.url
+
+    # Tell VLC to play the video
+    Instance = vlc.Instance()
+    player = Instance.media_player_new()
+    Media = Instance.media_new(url)
+    Media.get_mrl()
+    player.set_media(Media)
+    player.audio_set_volume(50)
+    player.set_fullscreen(True)
+    player.play()
 
 def YoutubeSearch(query):
     return "YouTube searching doesn't exist yet."
@@ -148,6 +209,9 @@ def ExecuteCommand(filterResult):
     
     # Execute heard command
     if errorCode == "" and filterResult != 1:
+        # paramNames is a list of parameter names in the function
+        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
+
         # Get arguments from heard speech if there are any
         # NOTE: The current system just fills in bullshit strings so the function call doesn't fuck over
         args = ""
@@ -160,6 +224,10 @@ def ExecuteCommand(filterResult):
                 if len(paramNames) > n + 1:
                     args += "', '"
             args += "'"
+
+        # Check if the function wants parameters. If not, clear arguments variable
+        if (len(paramNames) == 0):
+            args = ""
 
         # Call the command function
         tts = eval(commands[filterResult] + "(" + args + ")")
