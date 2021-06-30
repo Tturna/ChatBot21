@@ -7,6 +7,13 @@ import pyttsx3
 import requests, json
 import math
 import inspect
+import random
+import urllib.request
+import pafy
+import vlc # Requires VLC to be installed on the machine. Probably VLC 64-bit, not tested on anything else
+from youtubesearchpython import VideosSearch
+from newsapi import NewsApiClient
+from bs4 import BeautifulSoup
 from googlesearch import search as google
 
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
@@ -40,11 +47,13 @@ commands = {
 }
 
 # List of all command keywords that the system will listen to and all of their respective filter codes
-# NOTE: Use the upper case versions here. The system will check both these words and their lower case versions.
 keywords = {
     "Google": FILRES_GOOGLE,
     "Wikipedia": FILRES_WIKIPEDIA,
+    "Who is": FILRES_WIKIPEDIA,
+    "What is": FILRES_WIKIPEDIA,
     "YouTube": FILRES_YOUTUBE,
+    "Play": FILRES_YOUTUBE,
     "Time": FILRES_TIME,
     "Calculate": FILRES_CALC,
     "News": FILRES_NEWS,
@@ -57,6 +66,7 @@ debug_mode = True
     
 # Initialize the TTS engine
 def Speak(text):
+    if text == None: return
     ttsEngine = pyttsx3.init()
     ttsEngine.setProperty("rate", 175)
     ttsEngine.setProperty("voice", tts_langID_en_US)
@@ -73,15 +83,38 @@ def FilterCommands(text):
     for w in wakeWords:
         if w in text:
             # Wakeword detected
-            return FILRES_WAKEWORD
+            return FILRES_WAKEWORD, []
 
     # Check if a command was heard
+    text = str.lower(text)
     for k in keywords:
-        if (k in text or str.lower(k) in text):
-            return keywords[k]
+        og = k
+        k = str.lower(k)
+        if (k in text):
+
+            # NOTE: This system needs improvement
+            # Currently you can only search stuff on Google and Wikipedia by saying
+            # "Google x" or "Wikipedia x"
+            # You should be able to also search by saying
+            # "Search x on Google" or "Find x on Wikipedia"
+
+            args = []
+
+            # Find the initial command word's starting position
+            fullcmd = text[text.find(k):]
+            cmd = fullcmd[:len(k)]
+
+            # Get all the words after the initial command and set them as arguments, if possible
+            try:
+                argset = fullcmd[len(k) + 1:]
+                args = argset.split()
+            except: pass
+            print("Command: " + cmd + ", Args: " + str(args))
+
+            return keywords[og], args
 
     # No command detected
-    return FILRES_NONE
+    return FILRES_NONE, []
 
 # Commands ------------------------------------------------------------------------
 def GoogleSearch(query="###"):
@@ -151,8 +184,7 @@ def YoutubeSearch(query):
     player.set_fullscreen(True)
     player.play()
 
-def YoutubeSearch(query):
-    return "YouTube searching doesn't exist yet."
+    return None
 
 def GetTime():
     cTime = time.localtime()
@@ -162,6 +194,8 @@ def Calculate(equation):
     return "Calculating doesn't exist yet."
 
 def GetNews():
+    # Maybe get some news from Twitter? Pretty sure they have an API
+    # NewsApiClient for actual sources
     return "Getting news doesn't exist yet."
 
 def GetWeather():
@@ -184,7 +218,7 @@ def GetWeather():
 
 # Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-def ExecuteCommand(filterResult):
+def ExecuteCommand(filterResult, argList):
     global isWoke
     global errorCode
 
@@ -213,17 +247,13 @@ def ExecuteCommand(filterResult):
         paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
 
         # Get arguments from heard speech if there are any
-        # NOTE: The current system just fills in bullshit strings so the function call doesn't fuck over
-        args = ""
-        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
+        args = "'"
 
-        if len(paramNames) > 0:
-            args += "'"
-            for n in range(len(paramNames)):
-                args += (paramNames[n])
-                if len(paramNames) > n + 1:
-                    args += "', '"
-            args += "'"
+        for n in range(len(argList)):
+            args += str(argList[n])
+            if len(argList) > n + 1:
+                args += " "
+        args += "'"
 
         # Check if the function wants parameters. If not, clear arguments variable
         if (len(paramNames) == 0):
@@ -231,6 +261,10 @@ def ExecuteCommand(filterResult):
 
         # Call the command function
         tts = eval(commands[filterResult] + "(" + args + ")")
+        # try:
+        #     tts = eval(commands[filterResult] + "(" + args + ")")
+        # except:
+        #     tts = "Something went wrong with the command."
     
     # Text-To-Speech
     Speak(tts)
@@ -245,11 +279,11 @@ def ProcessAudio(recognizer, audio):
         # to use another API key, use `r.recognize_google(audio, key="GOOGLE_SPEECH_RECOGNITION_API_KEY")`
         # instead of `r.recognize_google(audio)`
         text = recognizer.recognize_google(audio)
-        filterResult = FilterCommands(text)
+        filterResult, args = FilterCommands(text)
         print(text)
         #print(text + " [ Detected command: " + str(filterResult) + " ]")
 
-        succeeded = ExecuteCommand(filterResult)
+        succeeded = ExecuteCommand(filterResult, args)
 
         if (not succeeded):
             print("Error: " + errorCode)
