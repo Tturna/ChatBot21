@@ -200,7 +200,7 @@ def GetWeather(query):
     if (query == "###" or query == [] or query == "" or query == None):
         return random.choice(roasts)
     CITY = query
-    API_KEY = "55c3c8c9d244ebcc1c7bf3250c873f95"
+    API_KEY = ""
     URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY
     response = requests.get(URL)
     if response.status_code == 200:
