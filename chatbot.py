@@ -103,6 +103,7 @@ def Speak(text):
     ttsEngine.setProperty("voice", tts_langID_en_US)
     ttsEngine.setProperty("volume", 0.5)
     ttsEngine.say(text)
+    print("...................................................... " + text)
     ttsEngine.runAndWait()
     return True
 
@@ -127,19 +128,55 @@ def FilterCommands(text):
             # Currently you can only search stuff on Google and Wikipedia by saying
             # "Google x" or "Wikipedia x"
             # You should be able to also search by saying
-            # "Search x on Google" or "Find x on Wikipedia"
+            # "Search x on Google" or "Find x from Wikipedia"
 
             args = []
 
             # Find the initial command word's starting position
-            fullcmd = text[text.find(k):]
+            cspos = text.find(k)
+            fullcmd = text[cspos:]
             cmd = fullcmd[:len(k)]
 
-            # Get all the words after the initial command and set them as arguments, if possible
             try:
-                argset = fullcmd[len(k) + 1:]
-                args = argset.split()
+                argsAtEnd = True
+                while True: # This "while" is here just so we can break from it later
+
+                    # Check if arguments should be taken from BEFORE the command
+                    if (cspos > 5):
+                        argsAtEnd = False
+
+                        # Filter out useless words...
+                        preCmd = text[:cspos]
+
+                        fuckyQuestionWords = ["what", "how"]
+                        # If the precommand contains a fucky question word, skip this
+                        for f in fuckyQuestionWords:
+                            if f in preCmd:
+                                argsAtEnd = True
+                                break
+
+                        # ... from the start of the pre-command
+                        fuckyWords = ["search", "find", "check", "look up"]
+                        for f in fuckyWords:
+                            if f in preCmd:
+                                preCmd = preCmd[:preCmd.find(f)] + preCmd[len(f):]
+
+                        # ... from the end of the pre-command
+                        fuckyWordsPartTwo = [" on ", " from ", " in "]
+                        for f in fuckyWordsPartTwo:
+                            if f in preCmd:
+                                if len(preCmd) <= preCmd.find(f) + len(f):
+                                    preCmd = preCmd[:preCmd.find(f)]
+
+                        args = str(preCmd).split()
+                    break
+
+                if (argsAtEnd):
+                    # Get all the words after the initial command and set them as arguments, if possible
+                    argset = fullcmd[len(k) + 1:]
+                    args = argset.split()
             except: pass
+
             print("Command: " + cmd + ", Args: " + str(args))
 
             return keywords[og], args
@@ -222,7 +259,7 @@ def YoutubeSearch(query):
 
 def GetTime():
     cTime = time.localtime()
-    return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min) 
+    return "The time is " + str(cTime.tm_hour) + ":" + ("0" + str(cTime.tm_min))[-2:]
 
 def Calculate(equation):
     return "Calculating doesn't exist yet."
@@ -236,8 +273,15 @@ def GetWeather(query):
     roasts = ["Please specify a city", "A city needs to be specified to get weather"]
     if (query == "###" or query == [] or query == "" or query == None):
         return random.choice(roasts)
-    CITY = query
-    API_KEY = ""
+
+    # Filter out bullshit word(s)
+    fuckery = ["in ", "at ", "like "]
+    for f in fuckery:
+        if f in query:
+            query = query[:query.find(f)] + query[query.find(f) + len(f):]
+
+    CITY = str(query)
+    API_KEY = "4b42430d2fd8897ab780f593ff2a2287"
     URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY + "&units=metric"
     response = requests.get(URL)
     if response.status_code == 200:
@@ -255,7 +299,7 @@ def GetWeather(query):
         rounded_feels = round(feelslike)
         return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees, at a humidity of, " + str(humidity) + " %, the temperature feels like " + str(rounded_feels) + " degrees. It is " + str(clouds_all) + "%" + "  cloudy and the wind speed is " + str(wind_speed) + " meters per second"
     else:
-        return "Error. API key is not set." if (API_KEY == "") else "City not found."
+        return "Error. API key is not set." if (API_KEY == "") else CITY + " is not a valid city."
         
 def CoinFlip():
     flip = random.randint(0,1)
@@ -325,24 +369,24 @@ def ExecuteCommand(filterResult, argList):
         paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
 
         # Get arguments from heard speech if there are any
-        args = "'"
+        args = '"'
 
         for n in range(len(argList)):
             args += str(argList[n])
             if len(argList) > n + 1:
                 args += " "
-        args += "'"
+        args += '"'
 
         # Check if the function wants parameters. If not, clear arguments variable
         if (len(paramNames) == 0):
             args = ""
 
         # Call the command function
-        tts = eval(commands[filterResult] + "(" + args + ")")
-        # try:
-        #     tts = eval(commands[filterResult] + "(" + args + ")")
-        # except:
-        #     tts = "Something went wrong with the command."
+        #tts = eval(commands[filterResult] + "(" + args + ")")
+        try:
+            tts = eval(commands[filterResult] + "(" + args + ")")
+        except:
+            tts = "Something went wrong with the command."
     
     # Text-To-Speech
     Speak(tts)
