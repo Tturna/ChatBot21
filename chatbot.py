@@ -157,7 +157,8 @@ def WikipediaSearch(query="###"):
         return random.choice(roasts)
 
     maxContentCharacters = 400
-    contents = pywhatkit.info(query)[:maxContentCharacters]
+    print("Wikipedia query: " + str(query))
+    contents = str(pywhatkit.info(query, return_value=True))[:maxContentCharacters]
 
     return "I Found this on Wikipedia, " + contents
 
@@ -179,6 +180,8 @@ def YoutubeSearch(query):
     Media = Instance.media_new(url)
     Media.get_mrl()
     player.set_media(Media)
+    player.audio_set_volume(50)
+    player.set_fullscreen(True)
     player.play()
 
     return None
@@ -244,7 +247,7 @@ def ExecuteCommand(filterResult, argList):
     # Execute heard command
     if errorCode == "" and filterResult != 1:
         # paramNames is a list of parameter names in the function
-        #paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
+        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
 
         # Get arguments from heard speech if there are any
         args = "'"
@@ -254,6 +257,10 @@ def ExecuteCommand(filterResult, argList):
             if len(argList) > n + 1:
                 args += " "
         args += "'"
+
+        # Check if the function wants parameters. If not, clear arguments variable
+        if (len(paramNames) == 0):
+            args = ""
 
         # Call the command function
         tts = eval(commands[filterResult] + "(" + args + ")")
