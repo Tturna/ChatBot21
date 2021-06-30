@@ -183,12 +183,7 @@ def YoutubeSearch(query):
 
     return None
 
-def GetTime(subcommand):
-    if subcommand == "time zone":
-        current_tz = time.timezone()
-        print(current_tz)
-        return str(current_tz)
-
+def GetTime():
     cTime = time.localtime()
     return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min) 
 
