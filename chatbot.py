@@ -183,7 +183,12 @@ def YoutubeSearch(query):
 
     return None
 
-def GetTime():
+def GetTime(subcommand):
+    if subcommand == "time zone":
+        current_tz = time.timezone()
+        print(current_tz)
+        return str(current_tz)
+
     cTime = time.localtime()
     return "The time is " + str(cTime.tm_hour) + ":" + str(cTime.tm_min) 
 
@@ -195,9 +200,12 @@ def GetNews():
     # NewsApiClient for actual sources
     return "Getting news doesn't exist yet."
 
-def GetWeather():
-    CITY = "" #used later as a keyword thingymajigy you know chief
-    API_KEY = ""
+def GetWeather(query):
+    roasts = ["Please specify a city", "A city needs to be specified to get weather"]
+    if (query == "###" or query == [] or query == "" or query == None):
+        return random.choice(roasts)
+    CITY = query
+    API_KEY = "55c3c8c9d244ebcc1c7bf3250c873f95"
     URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY
     response = requests.get(URL)
     if response.status_code == 200:
