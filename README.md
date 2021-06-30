@@ -22,7 +22,9 @@ If you wish to contribute you'll require the following modules:
   
   -pyttsx3
   
-  -json
+  -speechrecognition
+  
+  -googlesearch-python
   
   -requests
   

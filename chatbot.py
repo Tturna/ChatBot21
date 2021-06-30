@@ -33,11 +33,18 @@ FILRES_WEATHER = 8
 FILRES_COINFLIP = 9
 FILRES_M8B = 10
 
+FILRES_STOPVIDEO = 100
+FILRES_MUTEVIDEO = 101
+FILRES_VOLUMEUP = 102
+FILRES_VOLUMEDOWN = 103
+FILRES_FULLSCREEN = 104
+
 # List of all words that are considered as "wakewords".
 # The system will not run any commands before it hears a wakeword
 wakeWords = ["Dude", "dude"]
 
 # List of all command function names with their respective filter codes as indexes in the dictionary
+# NOTE: DO NOT SET ANYTHING TO INDEXES 0 OR 1
 commands = {
     2: "GoogleSearch",
     3: "WikipediaSearch",
@@ -47,7 +54,13 @@ commands = {
     7: "GetNews",
     8: "GetWeather",
     9: "CoinFlip",
-    10: "Magic8Ball"
+    10: "Magic8Ball",
+
+    100: "Stop",
+    101: "MuteVideo",
+    102: "VideoVolumeUp",
+    103: "VideoVolumeDown",
+    104: "VideoToggleFullscreen"
 }
 
 # List of all command keywords that the system will listen to and all of their respective filter codes
@@ -64,12 +77,23 @@ keywords = {
     "Weather": FILRES_WEATHER,
     "Coin flip": FILRES_COINFLIP,
     "Magic 8 ball": FILRES_M8B,
-    "Magic 8-ball": FILRES_M8B
+    "Magic 8-ball": FILRES_M8B,
+
+    "Stop": FILRES_STOPVIDEO,
+    "Mute": FILRES_MUTEVIDEO,
+    "Volume up": FILRES_VOLUMEUP,
+    "Volume down": FILRES_VOLUMEDOWN,
+    "Full screen": FILRES_FULLSCREEN
 }
 
 errorCode = ""
 isWoke = False
+isPlayingVideo = False
+vlcPlayer = None
+
+# ///////////////////// DEBUG MODE
 debug_mode = True
+# ///////////////////// DEBUG MODE
     
 # Initialize the TTS engine
 def Speak(text):
@@ -170,6 +194,8 @@ def WikipediaSearch(query="###"):
     return "I Found this on Wikipedia, " + contents
 
 def YoutubeSearch(query):
+    global vlcPlayer
+    global isPlayingVideo
 
     print("Searching '" + query + "' on YouTube")
 
@@ -183,13 +209,14 @@ def YoutubeSearch(query):
 
     # Tell VLC to play the video
     Instance = vlc.Instance()
-    player = Instance.media_player_new()
+    vlcPlayer = Instance.media_player_new()
     Media = Instance.media_new(url)
     Media.get_mrl()
-    player.set_media(Media)
-    player.audio_set_volume(50)
-    player.set_fullscreen(True)
-    player.play()
+    vlcPlayer.set_media(Media)
+    vlcPlayer.audio_set_volume(40)
+    vlcPlayer.set_fullscreen(True)
+    vlcPlayer.play()
+    isPlayingVideo = True
 
     return None
 
@@ -229,7 +256,7 @@ def GetWeather(query):
         return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees, at a humidity of, " + str(humidity) + " %, the temperature feels like " + str(rounded_feels) + " degrees. It is " + str(clouds_all) + "%" + "  cloudy and the wind speed is " + str(wind_speed) + " meters per second"
     else:
         return "Error. API key is not set." if (API_KEY == "") else "City not found."
-
+        
 def CoinFlip():
     flip = random.randint(0,1)
     if (flip == 0):
@@ -243,6 +270,30 @@ def Magic8Ball(question):
     else:
         responses = ["It is certain", "It is decidedly so", "Without a doubt", "Yes, definitely", "You may rely on it", "As I see it, yes", "Most likely", "Outlook good", "Yes", "Signs point to yes", "Reply hazy try again", "Ask again later", "Better not tell you now", "Cannot predict you", "Concentrate and ask again", "Don't count on it", "My reply is no", "My sources say no", "Outlook not so good", "Very doubtful"]
         return random.choice(responses)
+ 
+def Stop():
+    # This function will stop whatever is currently going on
+
+    if (isPlayingVideo):
+        vlcPlayer.stop()
+
+def MuteVideo():
+    print("Toggled video mute.")
+    vlcPlayer.audio_toggle_mute()
+
+def VideoVolumeUp(amount=10):
+    amount = amount if int(amount.isdigit()) else 10
+    print("Increased video volume by " + str(amount))
+    vlcPlayer.audio_set_volume(vlcPlayer.audio_get_volume() + amount)
+
+def VideoVolumeDown(amount=-20):
+    amount = amount if int(amount.isdigit()) else -20
+    print("Decreased video volume by " + str(amount))
+    vlcPlayer.audio_set_volume(vlcPlayer.audio_get_volume() + amount)
+
+def VideoToggleFullscreen():
+    vlcPlayer.toggle_fullscreen()
+
 # Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 def ExecuteCommand(filterResult, argList):
