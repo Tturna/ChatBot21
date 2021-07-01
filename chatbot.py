@@ -297,8 +297,6 @@ def GetNews(requestParam="recent"):
     # Parse the request parameter(s)
     # Get news accordingly
     startDate = str(date.today() - timedelta(days=7))
-    if ("week" in requestParam):
-        startDate = str(date.today() - timedelta(days=7))
 
     news = ""
 
