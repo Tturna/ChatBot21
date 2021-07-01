@@ -26,6 +26,7 @@ tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\T
 data = None
 with open("apicodes.json", "r") as file:
     data = json.load(file)
+    file.close()
 
 def TryGetKey(keyName):
     try: return data[keyName]
