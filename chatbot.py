@@ -11,14 +11,32 @@ import random
 import urllib.request
 import pafy
 import vlc # Requires VLC to be installed on the machine. Probably VLC 64-bit, not tested on anything else
+from datetime import date, timedelta
 from youtubesearchpython import VideosSearch
 from newsapi import NewsApiClient
+from newsapi.newsapi_exception import NewsAPIException
 from bs4 import BeautifulSoup
 from googlesearch import search as google
 
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
 tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi" #finnish TTS
 tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0" #english_US TTS
+
+# Get API codes from external JSON
+data = None
+with open("apicodes.json", "r") as file:
+    data = json.load(file)
+    file.close()
+
+def TryGetKey(keyName):
+    try: return data[keyName]
+    except: return ""
+
+API_CODE_WEATHER = TryGetKey("weatherapi")
+API_CODE_NEWS = TryGetKey("newsapi")
+API_CODE_TWITTER = TryGetKey("twitterapi")
+API_CODE_GOOGLECLOUD = TryGetKey("googlecloudapi")
+
 
 # Filter Result codes
 FILRES_NONE = 0
@@ -90,6 +108,7 @@ errorCode = ""
 isWoke = False
 isPlayingVideo = False
 vlcPlayer = None
+ttsSpeed = 175
 
 # ///////////////////// DEBUG MODE
 debug_mode = True
@@ -97,13 +116,15 @@ debug_mode = True
     
 # Initialize the TTS engine
 def Speak(text):
+    global ttsSpeed
+
     if text == None: return
     ttsEngine = pyttsx3.init()
-    ttsEngine.setProperty("rate", 175)
+    ttsEngine.setProperty("rate", ttsSpeed)
     ttsEngine.setProperty("voice", tts_langID_en_US)
     ttsEngine.setProperty("volume", 0.5)
     ttsEngine.say(text)
-    print("...................................................... " + text)
+    print("...................................................... @ " + str(ttsSpeed) + " ..... " + text)
     ttsEngine.runAndWait()
     return True
 
@@ -142,7 +163,7 @@ def FilterCommands(text):
                 while True: # This "while" is here just so we can break from it later
 
                     # Check if arguments should be taken from BEFORE the command
-                    if (cspos > 5):
+                    if (cspos > 5 and len(text) > cspos + len(cspos) + 5):
                         argsAtEnd = False
 
                         # Filter out useless words...
@@ -234,7 +255,7 @@ def YoutubeSearch(query):
     global vlcPlayer
     global isPlayingVideo
 
-    print("Searching '" + query + "' on YouTube")
+    Speak("Looking for " + query + " on YouTube.")
 
     # Get best relevant YouTube video URL
     resultDict = VideosSearch(query, limit = 1).result()
@@ -255,7 +276,7 @@ def YoutubeSearch(query):
     vlcPlayer.play()
     isPlayingVideo = True
 
-    return None
+    return "Playing " + resultDict["result"][0]["title"]
 
 def GetTime():
     cTime = time.localtime()
@@ -264,10 +285,41 @@ def GetTime():
 def Calculate(equation):
     return "Calculating doesn't exist yet."
 
-def GetNews():
+def GetNews(requestParam="recent"):
+    global ttsSpeed
+
     # Maybe get some news from Twitter? Pretty sure they have an API
     # NewsApiClient for actual sources
-    return "Getting news doesn't exist yet."
+    newsapi = NewsApiClient(api_key=API_CODE_NEWS)
+    sources = "google-news,bbc-news,cnn"
+    print("RePa: " + requestParam)
+
+    # Parse the request parameter(s)
+    # Get news accordingly
+    startDate = str(date.today() - timedelta(days=7))
+
+    news = ""
+
+    try:
+        all_articles = newsapi.get_everything(
+        sources=sources,
+        from_param=startDate,
+        to=str(date.today()),
+        language='en',
+        sort_by='publishedAt',
+        page=1)
+
+        for article in all_articles["articles"]:
+            news += article["source"]["name"] + ". \n" + article["title"] + ". \n" + article["description"] + " \n ----------------- \n"
+    except NewsAPIException:
+        return "Something went wrong when looking for news. Check your API key."
+    except:
+        return "Something went wrong when looking for news."
+
+    # Slow down the TTS so you can actually comprehend the news
+    ttsSpeed = 135
+
+    return "No news found." if len(news) < 10 else news
 
 def GetWeather(query):
     roasts = ["Please specify a city", "A city needs to be specified to get weather"]
@@ -281,7 +333,7 @@ def GetWeather(query):
             query = query[:query.find(f)] + query[query.find(f) + len(f):]
 
     CITY = str(query)
-    API_KEY = "4b42430d2fd8897ab780f593ff2a2287"
+    API_KEY = API_CODE_WEATHER
     URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY + "&units=metric"
     response = requests.get(URL)
     if response.status_code == 200:
@@ -395,6 +447,10 @@ def ExecuteCommand(filterResult, argList):
 
 # this is called from the background thread
 def ProcessAudio(recognizer, audio):
+    global ttsSpeed
+
+    ttsSpeed = 175
+
     # received audio data, now we'll recognize it using Google Speech Recognition
     try:
         # for testing purposes, we're just using the default API key
