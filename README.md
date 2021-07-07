@@ -14,7 +14,7 @@ If you wish to contribute you'll require the following modules:
   
   -python-vlc
   
-  -newsapi-python (not used yet)
+  -newsapi-python
   
   -youtube-dl
   
@@ -26,6 +26,6 @@ If you wish to contribute you'll require the following modules:
   
   -googlesearch-python
   
-  -requests
+  -beautifulsoup4
   
   NOTE: python-vlc ALSO REQUIRES that you install VLC on your machine. Confirmed to work with latest 64-bit version (3.0.16 64-bit)
