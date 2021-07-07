@@ -10,6 +10,9 @@ import inspect
 import random
 import urllib.request
 import pafy
+import re
+import calendar
+import os
 import vlc # Requires VLC to be installed on the machine. Probably VLC 64-bit, not tested on anything else
 from datetime import date, timedelta
 from youtubesearchpython import VideosSearch
@@ -37,6 +40,11 @@ API_CODE_NEWS = TryGetKey("newsapi")
 API_CODE_TWITTER = TryGetKey("twitterapi")
 API_CODE_GOOGLECLOUD = TryGetKey("googlecloudapi")
 
+# Check if any old news streams exist. If so, annihilate
+try:
+    os.remove("ylenews.mp3")
+except:
+    pass
 
 # Filter Result codes
 FILRES_NONE = 0
@@ -60,6 +68,9 @@ FILRES_FULLSCREEN = 104
 # List of all words that are considered as "wakewords".
 # The system will not run any commands before it hears a wakeword
 wakeWords = ["Dude", "dude"]
+
+positiveReplyWords = ["Yes", "Sure", "Yea", "Absolutely", "For sure", "Whatever", "Fine", "Totally", "Certainly", "Perhaps", "Maybe", "Always", "Yep", "Positive", "Affirmative", "Definitely", "Please"]
+negativeReplyWords = ["No", "Never", "Nope", "Nah", "None", "Negative", "Null", "Don't", "Not"]
 
 # List of all command function names with their respective filter codes as indexes in the dictionary
 # NOTE: DO NOT SET ANYTHING TO INDEXES 0 OR 1
@@ -106,8 +117,12 @@ keywords = {
 
 errorCode = ""
 isWoke = False
+isDialogRunning = False
 isPlayingVideo = False
 vlcPlayer = None
+
+recognizer = None
+microphone = None
 ttsSpeed = 175
 
 # ///////////////////// DEBUG MODE
@@ -144,13 +159,6 @@ def FilterCommands(text):
         og = k
         k = str.lower(k)
         if (k in text):
-
-            # NOTE: This system needs improvement
-            # Currently you can only search stuff on Google and Wikipedia by saying
-            # "Google x" or "Wikipedia x"
-            # You should be able to also search by saying
-            # "Search x on Google" or "Find x from Wikipedia"
-
             args = []
 
             # Find the initial command word's starting position
@@ -204,6 +212,37 @@ def FilterCommands(text):
 
     # No command detected
     return FILRES_NONE, []
+
+def RecognizeSpeech(recognizer, audio):
+    try:
+        # for testing purposes, we're just using the default API key
+        # to use another API key, use `r.recognize_google(audio, key="GOOGLE_SPEECH_RECOGNITION_API_KEY")`
+        # instead of `r.recognize_google(audio)`
+        return recognizer.recognize_google(audio)
+
+    except sr.UnknownValueError:
+        print("Could not understand audio")
+    except sr.RequestError as e:
+        print("Could not request results from Google Speech Recognition service; {0}".format(e))
+
+def Listen():
+    # This command will listen for one phrase and return whatever was heard
+    print("Listening for a phrase...")
+    audio = recognizer.listen(microphone)
+
+    # received audio data, now we'll recognize it using Google Speech Recognition
+    # Also execute any commands if a keyword is heard
+    failsafe = 10
+    f = 0
+    while True:
+        try:
+            return RecognizeSpeech(recognizer, audio)
+        except:
+            f += 1
+            if f >= failsafe:
+                print("Listening failed. Breaking before the system freezes.")
+                return "Something went wrong."
+            continue
 
 # Commands ------------------------------------------------------------------------
 def GoogleSearch(query="###"):
@@ -285,10 +324,88 @@ def GetTime():
 def Calculate(equation):
     return "Calculating doesn't exist yet."
 
+def ReadYLENews():
+    global vlcPlayer
+    global isPlayingVideo
+
+    # URL for YLE English news audio streams: https://areena.yle.fi/audio/1-3252165
+    url = "https://areena.yle.fi/audio/1-3252165"
+    print("Finding latest YLE audio news stream download URL...")
+    html = urllib.request.urlopen(url).read().decode("utf-8")
+
+    # Fucking parse the shit out of the HTML to find the stream download URL because YLE has made it practically impossible.
+    # Like getting the current day and looking for the stream id with it is probably the most reliable way of getting it,
+    # which already feels stupid.
+
+    # The YLE page has this modal window thing, and we need to get the url to that before we can access the
+    # download link to the actual stream.
+    weekDay = calendar.day_name[date.today().weekday()]
+    streamid = re.search('itemId.*?' + weekDay, html, re.IGNORECASE).group()
+    streamid = streamid[9:streamid.find(",") - 1]
+
+    streamModalWindowURL = "https://areena.yle.fi/audio/" + streamid
+    print(streamModalWindowURL)
+
+    html = urllib.request.urlopen(streamModalWindowURL).read().decode("utf-8")
+
+    # Now that we have the modal window HTML, we can parse the shit out of that one to finally find the download link
+    downloadLink = re.search('href="https://ylekdl.*?mp3', html, re.IGNORECASE).group()[6:]
+    print(downloadLink)
+
+    # Download the file
+    r = requests.get(downloadLink, allow_redirects=True)
+    streamFile = open('ylenews.mp3', 'wb')
+    streamFile.write(r.content)
+    streamFile.close()
+    
+    # Tell VLC to play the news stream
+    Instance = vlc.Instance()
+    vlcPlayer = Instance.media_player_new()
+    Media = Instance.media_new("ylenews.mp3")
+    Media.get_mrl()
+    vlcPlayer.set_media(Media)
+    vlcPlayer.audio_set_volume(40)
+    vlcPlayer.set_fullscreen(True)
+    vlcPlayer.play()
+    isPlayingVideo = True
+
 def GetNews(requestParam="recent"):
     global ttsSpeed
+    global isDialogRunning
 
-    # Maybe get some news from Twitter? Pretty sure they have an API
+    # Check whether the user wants to hear the YLE news from their own audible news stream
+    Speak("Would you like to listen to the latest Y L E news?")
+
+    while True:
+        isDialogRunning = True
+        time.sleep(0.5)
+        text = Listen()
+        print("Heard: " + text)
+
+        goToNews = False
+        for ne in negativeReplyWords:
+            if str.lower(ne) in str.lower(text):
+                # Not listening to YLE, reading news from NewsApiClient
+                Speak("Finding global news.")
+                goToNews = True
+                isDialogRunning = False
+                break
+        
+        if (not goToNews):
+            for po in positiveReplyWords:
+                if str.lower(po) in str.lower(text):
+                    # Listening to YLE
+                    Speak("Downloading the latest Y L E news stream. Give me a moment.")
+                    ReadYLENews()
+                    isDialogRunning = False
+                    return "Playing audio."
+
+            # If reply wasn't understood, retry
+            Speak("I didn't understand. Please answer yes, or no.")
+            continue
+        
+        break
+
     # NewsApiClient for actual sources
     newsapi = NewsApiClient(api_key=API_CODE_NEWS)
     sources = "google-news,bbc-news,cnn"
@@ -373,6 +490,12 @@ def Stop():
     if (isPlayingVideo):
         vlcPlayer.stop()
 
+        # Check if there is a news stream to remove.
+        try:
+            os.remove("ylenews.mp3")
+        except:
+            pass
+
 def MuteVideo():
     print("Toggled video mute.")
     vlcPlayer.audio_toggle_mute()
@@ -447,54 +570,63 @@ def ExecuteCommand(filterResult, argList):
 
 # this is called from the background thread
 def ProcessAudio(recognizer, audio):
+
+    # Check if a command has started a dialog, in which case don't listen to commands in the background until the dialog is complete
+    if (isDialogRunning):
+        return
+
     global ttsSpeed
 
     ttsSpeed = 175
 
     # received audio data, now we'll recognize it using Google Speech Recognition
-    try:
-        # for testing purposes, we're just using the default API key
-        # to use another API key, use `r.recognize_google(audio, key="GOOGLE_SPEECH_RECOGNITION_API_KEY")`
-        # instead of `r.recognize_google(audio)`
-        text = recognizer.recognize_google(audio)
-        filterResult, args = FilterCommands(text)
-        print(text)
-        #print(text + " [ Detected command: " + str(filterResult) + " ]")
+    text = RecognizeSpeech(recognizer, audio)
 
-        succeeded = ExecuteCommand(filterResult, args)
+    if text is None:
+        return
 
-        if (not succeeded):
-            print("Error: " + errorCode)
+    filterResult, args = FilterCommands(text)
+    print(text)
+    #print(text + " [ Detected command: " + str(filterResult) + " ]")
 
-    except sr.UnknownValueError:
-        print("Could not understand audio")
-    except sr.RequestError as e:
-        print("Could not request results from Google Speech Recognition service; {0}".format(e))
+    succeeded = ExecuteCommand(filterResult, args)
 
+    if (not succeeded):
+        print("Error: " + errorCode)
 
-r = sr.Recognizer()
-m = sr.Microphone()
+recognizer = sr.Recognizer()
+microphone = sr.Microphone()
 
-r.energy_threshold = 150 # energy level threshold for sounds. Values below this threshold are considered silence (default: 300)
-r.pause_threshold = 0.5 # minimum length of silence (in seconds) that will register as the end of a phrase (default: ~0.7)
+recognizer.energy_threshold = 200 # energy level threshold for sounds. Values below this threshold are considered silence (default: 300)
+recognizer.pause_threshold = 0.5 # minimum length of silence (in seconds) that will register as the end of a phrase (default: ~0.7)
 phrase_time = 7.5 # maximum time in seconds the recognizer will listen to a phrase before cutting off (default: None)
 
-with m as source:
-    r.adjust_for_ambient_noise(source)  # we only need to calibrate once, before we start listening
+with microphone as source:
+    recognizer.adjust_for_ambient_noise(source)  # we only need to calibrate once, before we start listening
 
-print("Listening for speech...")
-
-# start listening in the background
-stop_listening = r.listen_in_background(source=m, callback=ProcessAudio, phrase_time_limit=phrase_time)
-# `stop_listening` is now a function that, when called, stops background listening
-
-# Right here we can do other shit. The system will keep listening even if we freeze the thread by looping and stuff
-
-# calling this function requests that the background listener stop listening
-#stop_listening(wait_for_stop=False)
-
-#print("Stopped listening")
-
+isRecognizerRunning = False
 while True:
-    time.sleep(0.1)
-    #print(ttsEngine.isBusy())
+    # start listening in the background
+
+    print("Listening for speech...")
+    stop_listening = recognizer.listen_in_background(source=microphone, callback=ProcessAudio, phrase_time_limit=phrase_time)
+    isRecognizerRunning = True
+    # `stop_listening` is now a function that, when called, stops background listening
+
+    # Right here we can do other shit. The system will keep listening even if we freeze the thread by looping and stuff
+
+    # calling this function requests that the background listener stop listening
+    #stop_listening(wait_for_stop=False)
+
+    #print("Stopped listening")
+
+    while True:
+        time.sleep(0.1)
+        
+        # If a dialog is started, shut down the background listener
+        # If a dialog is completed, restart the background listener
+        if (isDialogRunning and isRecognizerRunning):
+            stop_listening(wait_for_stop=True)
+            isRecognizerRunning = False
+        elif (not isDialogRunning and not isRecognizerRunning):
+            break
