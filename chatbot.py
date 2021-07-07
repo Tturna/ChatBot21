@@ -46,6 +46,8 @@ FILRES_WIKIPEDIA = 3
 FILRES_YOUTUBE = 4
 FILRES_TIME = 5
 FILRES_CALC = 6
+last_answer = "0"
+
 FILRES_NEWS = 7
 FILRES_WEATHER = 8
 FILRES_COINFLIP = 9
@@ -283,7 +285,18 @@ def GetTime():
     return "The time is " + str(cTime.tm_hour) + ":" + ("0" + str(cTime.tm_min))[-2:]
 
 def Calculate(equation):
-    return "Calculating doesn't exist yet."
+    global last_answer
+    math_variables = ["last"]
+    for mv in math_variables:
+        if mv in equation:
+            if mv == "last":
+                new_equation = str(equation.replace(mv, last_answer))
+                last_answer = str(eval(new_equation))
+                return str(eval(new_equation))
+        else:
+            last_answer = str(eval(equation))
+            return str(eval(equation))
+    
 
 def GetNews(requestParam="recent"):
     global ttsSpeed
@@ -366,6 +379,7 @@ def Magic8Ball(question):
     else:
         responses = ["It is certain", "It is decidedly so", "Without a doubt", "Yes, definitely", "You may rely on it", "As I see it, yes", "Most likely", "Outlook good", "Yes", "Signs point to yes", "Reply hazy try again", "Ask again later", "Better not tell you now", "Cannot predict you", "Concentrate and ask again", "Don't count on it", "My reply is no", "My sources say no", "Outlook not so good", "Very doubtful"]
         return random.choice(responses)
+    
  
 def Stop():
     # This function will stop whatever is currently going on
