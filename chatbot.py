@@ -50,6 +50,8 @@ last_answer = "0"
 
 FILRES_NEWS = 7
 FILRES_WEATHER = 8
+M_UNITS = "celsius"
+
 FILRES_COINFLIP = 9
 FILRES_M8B = 10
 
@@ -290,9 +292,9 @@ def Calculate(equation):
     for mv in math_variables:
         if mv in equation:
             if mv == "last":
-                new_equation = str(equation.replace(mv, last_answer))
-                last_answer = str(eval(new_equation))
-                return str(eval(new_equation))
+                equation = str(equation.replace(mv, last_answer))
+                last_answer = str(eval(equation))
+                return str(eval(equation))
         else:
             last_answer = str(eval(equation))
             return str(eval(equation))
@@ -335,9 +337,22 @@ def GetNews(requestParam="recent"):
     return "No news found." if len(news) < 10 else news
 
 def GetWeather(query):
+    global M_UNITS
     roasts = ["Please specify a city", "A city needs to be specified to get weather"]
     if (query == "###" or query == [] or query == "" or query == None):
         return random.choice(roasts)
+
+    #Ask for preferred measurement unit
+    measurement_units = ["celsius", "metric", "fahrenheit", "imperial"]
+    for mu in measurement_units:
+        if mu in query:
+            if mu == "celsius" or mu == "metric":
+                M_UNITS = "metric"
+            elif mu == "fahrenheit" or mu == "imperial":
+                M_UNITS = "imperial"
+            query = query.replace(mu, "")
+        else:
+            M_UNITS = "metric"
 
     # Filter out bullshit word(s)
     fuckery = ["in ", "at ", "like "]
@@ -347,7 +362,7 @@ def GetWeather(query):
 
     CITY = str(query)
     API_KEY = API_CODE_WEATHER
-    URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY + "&units=metric"
+    URL = WEATHER_REQUEST_URL + "q=" + CITY + "&appid=" + API_KEY + "&units=" + M_UNITS
     response = requests.get(URL)
     if response.status_code == 200:
         data = response.json()
@@ -360,9 +375,9 @@ def GetWeather(query):
         clouds_all = clouds['all']
         wind_speed = wind['speed']
         report = data['weather']
-        rounded_temp = round(temperature)
-        rounded_feels = round(feelslike)
-        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(rounded_temp) + " degrees, at a humidity of, " + str(humidity) + " %, the temperature feels like " + str(rounded_feels) + " degrees. It is " + str(clouds_all) + "%" + "  cloudy and the wind speed is " + str(wind_speed) + " meters per second"
+        temperature = round(temperature)
+        feelslike = round(feelslike)
+        return "Weather in " + CITY + ": " + str(report[0]['description']) + ", " + str(temperature) + " degrees, at a humidity of, " + str(humidity) + " %, the temperature feels like " + str(feelslike) + " degrees. It is " + str(clouds_all) + "%" + "  cloudy and the wind speed is " + str(wind_speed) + " meters per second"
     else:
         return "Error. API key is not set." if (API_KEY == "") else CITY + " is not a valid city."
         
