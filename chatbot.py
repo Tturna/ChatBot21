@@ -1,35 +1,35 @@
 # ChatBot21
+# https://github.com/Tturna/ChatBot21
 
-import time
 import speech_recognition as sr
-import pywhatkit
-import pyttsx3
 import requests, json
-import math
+import urllib.request
+import pywhatkit
+import calendar
+import pyttsx3
 import inspect
 import random
-import urllib.request
+import time
 import pafy
-import re
-import calendar
-import os
 import vlc # Requires VLC to be installed on the machine. Probably VLC 64-bit, not tested on anything else
-from datetime import date, timedelta
-from youtubesearchpython import VideosSearch
-from newsapi import NewsApiClient
+import re
+import os
 from newsapi.newsapi_exception import NewsAPIException
-from bs4 import BeautifulSoup
+from youtubesearchpython import VideosSearch
 from googlesearch import search as google
+from datetime import date, timedelta
+from newsapi import NewsApiClient
+from bs4 import BeautifulSoup
 
+YLE_NEWS_URL = "https://areena.yle.fi/audio/1-3252165"
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
-tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi" #finnish TTS
-tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0" #english_US TTS
+tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi"
+tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0"
 
 # Get API codes from external JSON
 data = None
 with open("apicodes.json", "r") as file:
-    data = json.load(file)
-    file.close()
+    data = json.load(file);file.close()
 
 def TryGetKey(keyName):
     try: return data[keyName]
@@ -40,12 +40,6 @@ API_CODE_NEWS = TryGetKey("newsapi")
 API_CODE_TWITTER = TryGetKey("twitterapi")
 API_CODE_GOOGLECLOUD = TryGetKey("googlecloudapi")
 
-# Check if any old news streams exist. If so, annihilate
-try:
-    os.remove("ylenews.mp3")
-except:
-    pass
-
 # Filter Result codes
 FILRES_NONE = 0
 FILRES_WAKEWORD = 1
@@ -54,12 +48,8 @@ FILRES_WIKIPEDIA = 3
 FILRES_YOUTUBE = 4
 FILRES_TIME = 5
 FILRES_CALC = 6
-last_answer = "0"
-
 FILRES_NEWS = 7
 FILRES_WEATHER = 8
-M_UNITS = "celsius"
-
 FILRES_COINFLIP = 9
 FILRES_M8B = 10
 
@@ -119,19 +109,26 @@ keywords = {
     "Full screen": FILRES_FULLSCREEN
 }
 
-errorCode = ""
 isWoke = False
 isDialogRunning = False
 isPlayingVideo = False
-vlcPlayer = None
 
+vlcPlayer = None
 recognizer = None
 microphone = None
+
+errorCode = ""
 ttsSpeed = 175
+last_answer = "0"
+M_UNITS = "celsius"
 
 # ///////////////////// DEBUG MODE
 debug_mode = True
 # ///////////////////// DEBUG MODE
+
+# Check if any old news streams exist. If so, annihilate
+try: os.remove("ylenews.mp3")
+except: pass
     
 # Initialize the TTS engine
 def Speak(text):
@@ -219,9 +216,10 @@ def FilterCommands(text):
 
 def RecognizeSpeech(recognizer, audio):
     try:
-        # for testing purposes, we're just using the default API key
-        # to use another API key, use `r.recognize_google(audio, key="GOOGLE_SPEECH_RECOGNITION_API_KEY")`
-        # instead of `r.recognize_google(audio)`
+        # For now, we're using the default Google speech recognition system.
+        # In the future, we will use the Google Cloud speech recognition system,
+        # which will allow us to set preferred words that it will more likely detect,
+        # reducing error percentage
         return recognizer.recognize_google(audio)
 
     except sr.UnknownValueError:
@@ -235,7 +233,7 @@ def Listen():
     audio = recognizer.listen(microphone)
 
     # received audio data, now we'll recognize it using Google Speech Recognition
-    # Also execute any commands if a keyword is heard
+    # Return whatever was heard as text
     failsafe = 10
     f = 0
     while True:
@@ -338,13 +336,12 @@ def Calculate(equation):
             last_answer = str(eval(equation))
             return str(eval(equation))
     
-
 def ReadYLENews():
     global vlcPlayer
     global isPlayingVideo
 
-    # URL for YLE English news audio streams: https://areena.yle.fi/audio/1-3252165
-    url = "https://areena.yle.fi/audio/1-3252165"
+    # URL for YLE English news audio streams: https://areena.yle.fi/audio/1-3252165 as of (2021.07.07) at least
+    url = YLE_NEWS_URL
     print("Finding latest YLE audio news stream download URL...")
     html = urllib.request.urlopen(url).read().decode("utf-8")
 
@@ -512,7 +509,6 @@ def Magic8Ball(question):
         responses = ["It is certain", "It is decidedly so", "Without a doubt", "Yes, definitely", "You may rely on it", "As I see it, yes", "Most likely", "Outlook good", "Yes", "Signs point to yes", "Reply hazy try again", "Ask again later", "Better not tell you now", "Cannot predict you", "Concentrate and ask again", "Don't count on it", "My reply is no", "My sources say no", "Outlook not so good", "Very doubtful"]
         return random.choice(responses)
     
- 
 def Stop():
     # This function will stop whatever is currently going on
 
@@ -640,22 +636,20 @@ while True:
     print("Listening for speech...")
     stop_listening = recognizer.listen_in_background(source=microphone, callback=ProcessAudio, phrase_time_limit=phrase_time)
     isRecognizerRunning = True
-    # `stop_listening` is now a function that, when called, stops background listening
 
     # Right here we can do other shit. The system will keep listening even if we freeze the thread by looping and stuff
 
     # calling this function requests that the background listener stop listening
     #stop_listening(wait_for_stop=False)
 
-    #print("Stopped listening")
-
     while True:
         time.sleep(0.1)
         
         # If a dialog is started, shut down the background listener
-        # If a dialog is completed, restart the background listener
         if (isDialogRunning and isRecognizerRunning):
             stop_listening(wait_for_stop=True)
             isRecognizerRunning = False
+
+        # If a dialog is completed, restart the background listener
         elif (not isDialogRunning and not isRecognizerRunning):
             break
