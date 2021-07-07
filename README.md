@@ -1,7 +1,18 @@
 # ChatBot21
-A custom chat bot for personal use. Supposed to be like the famous "Alexa" or Amazon Echo device, but better.
+A custom virtual assistant bot for personal use. It is supposed to mimic the famous Amazon Echo or "Alexa" and improve on the idea.
+The plan is to run this on a Raspberry Pi in the future. For now, it is run and developed on a Windows PC.
 
+Currently the system supports features like...
 
+- Google searching
+- Wikipedia searching
+- Playing YouTube videos
+- Telling about recent news
+- Telling about current weather
+
+... and many others.
+
+Some of the future plans for this project can be found in the "Projects" tab.
 
 
 
