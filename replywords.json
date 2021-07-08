@@ -1,0 +1,8 @@
+{
+    "positive": ["Yes", "Sure", "Yea", "Absolutely", "For sure",
+                "Whatever", "Fine", "Totally", "Certainly", "Perhaps",
+                "Maybe", "Always", "Yep", "Positive", "Affirmative",
+                "Definitely", "Please", "Bet"],
+                
+    "negative": ["No", "Never", "Nope", "Nah", "None", "Negative", "Null", "Don't", "Not"]
+}

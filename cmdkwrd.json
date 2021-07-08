@@ -1,0 +1,58 @@
+{
+    "GoogleSearch": {
+        "filterCode": 2,
+        "keyWords": ["Google"]
+    },
+    "WikipediaSearch": {
+        "filterCode": 3,
+        "keyWords": ["Wikipedia", "Who is", "What is"]
+    },
+    "YoutubeSearch": {
+        "filterCode": 4,
+        "keyWords": ["YouTube", "Play"]
+    },
+    "GetTime": {
+        "filterCode": 5,
+        "keyWords": ["Time"]
+    },
+    "Calculate": {
+        "filterCode": 6,
+        "keyWords": ["Calculate"]
+    },
+    "GetNews": {
+        "filterCode": 7,
+        "keyWords": ["News"]
+    },
+    "GetWeather": {
+        "filterCode": 8,
+        "keyWords": ["Weather"]
+    },
+    "CoinFlip": {
+        "filterCode": 9,
+        "keyWords": ["Coin flip"]
+    },
+    "Magic8Ball": {
+        "filterCode": 10,
+        "keyWords": ["Magic 8 ball", "Magic 8-ball"]
+    },
+    "Stop": {
+        "filterCode": 100,
+        "keyWords": ["Stop"]
+    },
+    "MuteVideo": {
+        "filterCode": 101,
+        "keyWords": ["Mute"]
+    },
+    "VideoVolumeUp": {
+        "filterCode": 102,
+        "keyWords": ["Volume up"]
+    },
+    "VideoVolumeDown": {
+        "filterCode": 103,
+        "keyWords": ["Volume down"]
+    },
+    "VideoToggleFullscreen": {
+        "filterCode": 104,
+        "keyWords": ["Full screen"]
+    }
+}

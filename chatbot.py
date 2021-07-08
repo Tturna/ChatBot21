@@ -20,95 +20,46 @@ from googlesearch import search as google
 from datetime import date, timedelta
 from newsapi import NewsApiClient
 from bs4 import BeautifulSoup
+from chatutility import *
+
+# ||||||||||||||||||||||||||||||||||||||||||||||| --- INITIALIZE REQUIRED DATA AND VARIABLES --- ||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 YLE_NEWS_URL = "https://areena.yle.fi/audio/1-3252165"
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
 tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi"
 tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0"
 
-# Get API codes from external JSON
+def TryValueFromKey(dict, key):
+    try: return dict[key]
+    except: return ""
 data = None
+
+# Get API codes from external JSON
 with open("apicodes.json", "r") as file:
     data = json.load(file);file.close()
 
-def TryGetKey(keyName):
-    try: return data[keyName]
-    except: return ""
-
-API_CODE_WEATHER = TryGetKey("weatherapi")
-API_CODE_NEWS = TryGetKey("newsapi")
-API_CODE_TWITTER = TryGetKey("twitterapi")
-API_CODE_GOOGLECLOUD = TryGetKey("googlecloudapi")
-
-# Filter Result codes
-FILRES_NONE = 0
-FILRES_WAKEWORD = 1
-FILRES_GOOGLE = 2
-FILRES_WIKIPEDIA = 3
-FILRES_YOUTUBE = 4
-FILRES_TIME = 5
-FILRES_CALC = 6
-FILRES_NEWS = 7
-FILRES_WEATHER = 8
-FILRES_COINFLIP = 9
-FILRES_M8B = 10
-
-FILRES_STOPVIDEO = 100
-FILRES_MUTEVIDEO = 101
-FILRES_VOLUMEUP = 102
-FILRES_VOLUMEDOWN = 103
-FILRES_FULLSCREEN = 104
+API_CODE_GOOGLECLOUD = TryValueFromKey(data, "googlecloudapi") # Not used yet
+API_CODE_TWITTER = TryValueFromKey(data, "twitterapi") # Not used yet
+API_CODE_WEATHER = TryValueFromKey(data, "weatherapi")
+API_CODE_NEWS = TryValueFromKey(data, "newsapi")
 
 # List of all words that are considered as "wakewords".
-# The system will not run any commands before it hears a wakeword
-wakeWords = ["Dude", "dude"]
+# The system will not run any commands before it hears a wakeword (unless Debug mode is on)
+wakeWords = ["Dude"]
 
-positiveReplyWords = ["Yes", "Sure", "Yea", "Absolutely", "For sure", "Whatever", "Fine", "Totally", "Certainly", "Perhaps", "Maybe", "Always", "Yep", "Positive", "Affirmative", "Definitely", "Please"]
-negativeReplyWords = ["No", "Never", "Nope", "Nah", "None", "Negative", "Null", "Don't", "Not"]
+# Get reply words from external JSON
+with open("replywords.json") as file:
+    data = json.load(file);file.close()
 
-# List of all command function names with their respective filter codes as indexes in the dictionary
-# NOTE: DO NOT SET ANYTHING TO INDEXES 0 OR 1
-commands = {
-    2: "GoogleSearch",
-    3: "WikipediaSearch",
-    4: "YoutubeSearch",
-    5: "GetTime",
-    6: "Calculate",
-    7: "GetNews",
-    8: "GetWeather",
-    9: "CoinFlip",
-    10: "Magic8Ball",
+REPLY_WORDS = data
 
-    100: "Stop",
-    101: "MuteVideo",
-    102: "VideoVolumeUp",
-    103: "VideoVolumeDown",
-    104: "VideoToggleFullscreen"
-}
+# Get commands and keywords from external JSON
+with open("cmdkwrd.json") as file:
+    data = json.load(file);file.close()
 
-# List of all command keywords that the system will listen to and all of their respective filter codes
-keywords = {
-    "Google": FILRES_GOOGLE,
-    "Wikipedia": FILRES_WIKIPEDIA,
-    "Who is": FILRES_WIKIPEDIA,
-    "What is": FILRES_WIKIPEDIA,
-    "YouTube": FILRES_YOUTUBE,
-    "Play": FILRES_YOUTUBE,
-    "Time": FILRES_TIME,
-    "Calculate": FILRES_CALC,
-    "News": FILRES_NEWS,
-    "Weather": FILRES_WEATHER,
-    "Coin flip": FILRES_COINFLIP,
-    "Magic 8 ball": FILRES_M8B,
-    "Magic 8-ball": FILRES_M8B,
+CMD_KWRD = data
 
-    "Stop": FILRES_STOPVIDEO,
-    "Mute": FILRES_MUTEVIDEO,
-    "Volume up": FILRES_VOLUMEUP,
-    "Volume down": FILRES_VOLUMEDOWN,
-    "Full screen": FILRES_FULLSCREEN
-}
-
+# Various variables
 isWoke = False
 isDialogRunning = False
 isPlayingVideo = False
@@ -126,9 +77,7 @@ M_UNITS = "celsius"
 debug_mode = True
 # ///////////////////// DEBUG MODE
 
-# Check if any old news streams exist. If so, annihilate
-try: os.remove("ylenews.mp3")
-except: pass
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
     
 # Initialize the TTS engine
 def Speak(text):
@@ -143,76 +92,6 @@ def Speak(text):
     print("...................................................... @ " + str(ttsSpeed) + " ..... " + text)
     ttsEngine.runAndWait()
     return True
-
-def FilterCommands(text):
-    # This function will check if the argument text has any commands in it
-    # Returns a filter result code depending on what was heard
-
-    # Check if heard speech contained the wakeword
-    for w in wakeWords:
-        if w in text:
-            # Wakeword detected
-            return FILRES_WAKEWORD, []
-
-    # Check if a command was heard
-    text = str.lower(text)
-    for k in keywords:
-        og = k
-        k = str.lower(k)
-        if (k in text):
-            args = []
-
-            # Find the initial command word's starting position
-            cspos = text.find(k)
-            fullcmd = text[cspos:]
-            cmd = fullcmd[:len(k)]
-
-            try:
-                argsAtEnd = True
-                while True: # This "while" is here just so we can break from it later
-
-                    # Check if arguments should be taken from BEFORE the command
-                    if (cspos > 5 and len(text) > cspos + len(cspos) + 5):
-                        argsAtEnd = False
-
-                        # Filter out useless words...
-                        preCmd = text[:cspos]
-
-                        fuckyQuestionWords = ["what", "how"]
-                        # If the precommand contains a fucky question word, skip this
-                        for f in fuckyQuestionWords:
-                            if f in preCmd:
-                                argsAtEnd = True
-                                break
-
-                        # ... from the start of the pre-command
-                        fuckyWords = ["search", "find", "check", "look up"]
-                        for f in fuckyWords:
-                            if f in preCmd:
-                                preCmd = preCmd[:preCmd.find(f)] + preCmd[len(f):]
-
-                        # ... from the end of the pre-command
-                        fuckyWordsPartTwo = [" on ", " from ", " in "]
-                        for f in fuckyWordsPartTwo:
-                            if f in preCmd:
-                                if len(preCmd) <= preCmd.find(f) + len(f):
-                                    preCmd = preCmd[:preCmd.find(f)]
-
-                        args = str(preCmd).split()
-                    break
-
-                if (argsAtEnd):
-                    # Get all the words after the initial command and set them as arguments, if possible
-                    argset = fullcmd[len(k) + 1:]
-                    args = argset.split()
-            except: pass
-
-            print("Command: " + cmd + ", Args: " + str(args))
-
-            return keywords[og], args
-
-    # No command detected
-    return FILRES_NONE, []
 
 def RecognizeSpeech(recognizer, audio):
     try:
@@ -246,7 +125,7 @@ def Listen():
                 return "Something went wrong."
             continue
 
-# Commands ------------------------------------------------------------------------
+# |||||||||||||||||||||||||||||||||||||||||||||||||||||||||| --- COMMAND FUNCTIONS --- ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 def GoogleSearch(query="###"):
 
     # Check if this function was called with no parameters
@@ -395,30 +274,30 @@ def GetNews(requestParam="recent"):
         print("Heard: " + text)
 
         goToNews = False
-        for ne in negativeReplyWords:
-            if str.lower(ne) in str.lower(text):
-                # Not listening to YLE, reading news from NewsApiClient
-                Speak("Finding global news.")
-                goToNews = True
-                isDialogRunning = False
-                break
+        if IsListElementInString(text, REPLY_WORDS["negative"], ignoreCase=True):
+            # Not listening to YLE, reading news from NewsApiClient
+            Speak("Finding global news.")
+            goToNews = True
+            isDialogRunning = False
         
         if (not goToNews):
-            for po in positiveReplyWords:
-                if str.lower(po) in str.lower(text):
-                    # Listening to YLE
-                    Speak("Downloading the latest Y L E news stream. Give me a moment.")
-                    ReadYLENews()
-                    isDialogRunning = False
-                    return "Playing audio."
+            if IsListElementInString(text, REPLY_WORDS["positive"], ignoreCase=True):
+                # Listening to YLE
+                Speak("Downloading the latest Y L E news stream. Give me a moment.")
+                t = time.localtime()
+                if (t.tm_hour < 16 or (t.tm_hour == 16 and t.tm_min <= 16)):
+                    Speak("Playing yesterday's news. New stream is uploaded at roughly 16 15")
+                ReadYLENews()
+                isDialogRunning = False
+                return "Playing audio."
 
             # If reply wasn't understood, retry
-            Speak("I didn't understand. Please answer yes, or no.")
+            Speak("I didn't understand. Please answer yes or no.")
             continue
         
         break
 
-    # NewsApiClient for actual sources
+    # NewsApiClient for other sources
     newsapi = NewsApiClient(api_key=API_CODE_NEWS)
     sources = "google-news,bbc-news,cnn"
     print("RePa: " + requestParam)
@@ -537,10 +416,84 @@ def VideoVolumeDown(amount=-20):
 
 def VideoToggleFullscreen():
     vlcPlayer.toggle_fullscreen()
+# -----------------------------------------------------------------------------------------------------------------------------------
 
-# Commands ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Audio to text and command parsing system
+def FilterCommands(text):
+    # This function will check if the argument text has any commands in it
+    # Returns a command function name and arguments for it depending on what was heard
 
-def ExecuteCommand(filterResult, argList):
+    # Check if heard speech contained the wakeword
+    for w in wakeWords:
+        if str.lower(w) in str.lower(text):
+            # Wakeword detected
+            return 1, []
+
+    # Check if a command was heard
+    text = str.lower(text)
+    for c in CMD_KWRD:
+        for k in CMD_KWRD[c]["keyWords"]:
+            k = str.lower(k)
+            if (k in text):
+                args = []
+
+                # Find the initial command word's starting position
+                cspos = text.find(k)
+                fullcmd = text[cspos:]
+                cmd = fullcmd[:len(k)]
+
+                try:
+                    argsAtEnd = True
+                    while True: # This "while" is here just so we can break from it later
+
+                        # Check if arguments should be taken from BEFORE the command
+                        if (cspos > 5 and len(text) > cspos + len(cspos) + 5):
+                            argsAtEnd = False
+
+                            # Filter out useless words...
+                            preCmd = text[:cspos]
+
+                            fuckyQuestionWords = ["what", "how"]
+                            # If the precommand contains a fucky question word, skip this
+                            for f in fuckyQuestionWords:
+                                if f in preCmd:
+                                    argsAtEnd = True
+                                    break
+
+                            # ... from the start of the pre-command
+                            fuckyWords = ["search", "find", "check", "look up"]
+                            for f in fuckyWords:
+                                if f in preCmd:
+                                    preCmd = preCmd[:preCmd.find(f)] + preCmd[len(f):]
+
+                            # ... from the end of the pre-command
+                            fuckyWordsPartTwo = [" on ", " from ", " in "]
+                            for f in fuckyWordsPartTwo:
+                                if f in preCmd:
+                                    if len(preCmd) <= preCmd.find(f) + len(f):
+                                        preCmd = preCmd[:preCmd.find(f)]
+
+                            args = str(preCmd).split()
+                        break
+
+                    if (argsAtEnd):
+                        # Get all the words after the initial command and set them as arguments, if possible
+                        argset = fullcmd[len(k) + 1:]
+                        args = argset.split()
+                except: pass
+
+                print("Command: " + cmd + ", Args: " + str(args))
+
+                return c, args
+
+    # No command detected
+    return None, []
+
+def ExecuteCommand(functionName, argList):
+    # This function will take a function name and a list of arguments and try to
+    # execute whatever it is given. It will also check for wakewords.
+    # Whatever the executed function returns, will be sent to the TTS engine to say.
+
     global isWoke
     global errorCode
 
@@ -548,7 +501,7 @@ def ExecuteCommand(filterResult, argList):
     tts = "Something went wrong. This shouldn't have happened."
 
     # Listen for wakeword
-    if (filterResult == 1):
+    if (functionName == 1):
         isWoke = True
         tts = "Hello"
 
@@ -559,14 +512,14 @@ def ExecuteCommand(filterResult, argList):
         return False
 
     # Return error when no command was heard
-    elif (filterResult == 0):
+    elif (functionName == None):
         errorCode = "No such command"
         tts = "I don't know what that means."
     
     # Execute heard command
-    if errorCode == "" and filterResult != 1:
+    if errorCode == "" and functionName != 1:
         # paramNames is a list of parameter names in the function
-        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(commands[filterResult]))
+        paramNames, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(eval(functionName))
 
         # Get arguments from heard speech if there are any
         args = '"'
@@ -582,9 +535,9 @@ def ExecuteCommand(filterResult, argList):
             args = ""
 
         # Call the command function
-        #tts = eval(commands[filterResult] + "(" + args + ")")
+        #tts = eval(functionName + "(" + args + ")")
         try:
-            tts = eval(commands[filterResult] + "(" + args + ")")
+            tts = eval(functionName + "(" + args + ")")
         except:
             tts = "Something went wrong with the command."
     
@@ -610,17 +563,26 @@ def ProcessAudio(recognizer, audio):
     if text is None:
         return
 
-    filterResult, args = FilterCommands(text)
+    functionName, args = FilterCommands(text)
     print(text)
     #print(text + " [ Detected command: " + str(filterResult) + " ]")
 
-    succeeded = ExecuteCommand(filterResult, args)
+    succeeded = ExecuteCommand(functionName, args)
 
     if (not succeeded):
         print("Error: " + errorCode)
 
+# |||||||||||||||||||||||||||||||||||||||||||||||||||| --- MAIN --- |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+# Check if there is an old news stream to remove.
+try: os.remove("ylenews.mp3")
+except: pass
+
+# Initialize speech recognizer and default microphone
 recognizer = sr.Recognizer()
 microphone = sr.Microphone()
+
+# Default speech recognizer settings
 
 recognizer.energy_threshold = 200 # energy level threshold for sounds. Values below this threshold are considered silence (default: 300)
 recognizer.pause_threshold = 0.5 # minimum length of silence (in seconds) that will register as the end of a phrase (default: ~0.7)
@@ -629,6 +591,7 @@ phrase_time = 7.5 # maximum time in seconds the recognizer will listen to a phra
 with microphone as source:
     recognizer.adjust_for_ambient_noise(source)  # we only need to calibrate once, before we start listening
 
+# MAIN LOOP
 isRecognizerRunning = False
 while True:
     # start listening in the background
