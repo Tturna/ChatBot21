@@ -26,6 +26,7 @@ from chatutility import *
 
 YLE_NEWS_URL = "https://areena.yle.fi/audio/1-3252165"
 WEATHER_REQUEST_URL = "https://api.openweathermap.org/data/2.5/weather?"
+DEFINITION_REQUEST_URL = "https://api.dictionaryapi.dev/api/v2/entries/en_US/"
 tts_langID_fin = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\MSTTS_V110_fiFI_Heidi"
 tts_langID_en_US = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0"
 
@@ -387,6 +388,24 @@ def Magic8Ball(question):
     else:
         responses = ["It is certain", "It is decidedly so", "Without a doubt", "Yes, definitely", "You may rely on it", "As I see it, yes", "Most likely", "Outlook good", "Yes", "Signs point to yes", "Reply hazy try again", "Ask again later", "Better not tell you now", "Cannot predict you", "Concentrate and ask again", "Don't count on it", "My reply is no", "My sources say no", "Outlook not so good", "Very doubtful"]
         return random.choice(responses)
+
+def Define(query):
+    URL = DEFINITION_REQUEST_URL + query
+    response = requests.get(URL)
+    if response.status_code == 200:
+        data = response.json()
+        main = data[0]
+        word = main['word']
+        meanings = main['meanings']
+        meanings_main = meanings[0]
+        partOfSpeech = meanings_main['partOfSpeech']
+        definitions = meanings_main['definitions']
+        definitions_main = definitions[0]
+        definition = definitions_main['definition']
+        example = definitions_main['example']
+        return word + ", " + partOfSpeech + ". " + definition + " Example given, " + example
+    else:
+        return "There was an error with the command or the API"
     
 def Stop():
     # This function will stop whatever is currently going on

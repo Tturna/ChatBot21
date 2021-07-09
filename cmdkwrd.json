@@ -35,6 +35,10 @@
         "filterCode": 10,
         "keyWords": ["Magic 8 ball", "Magic 8-ball"]
     },
+    "Define": {
+        "filterCode": 11,
+        "keyWords": ["Define", "define"]
+    },
     "Stop": {
         "filterCode": 100,
         "keyWords": ["Stop"]
